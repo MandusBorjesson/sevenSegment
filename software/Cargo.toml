@@ -3,4 +3,11 @@ name = "seven_segment"
 version = "0.1.0"
 edition = "2021"
 
+[profile.release]
+opt-level = 'z' # Memory is scarce, maximize optimizations
+lto = true      # Link-time-optimizations for further size reduction
+
 [dependencies]
+cortex-m = "0.7.7"
+cortex-m-rt = "0.7.3"
+panic-halt = "0.2.0"
