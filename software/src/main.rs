@@ -15,19 +15,17 @@ enum SegmentState {
     Unknown,
 }
 
-type SegmentPins<Set, Clear> = (Clear, Set);
-
-struct Segment<SetPin: OutputPin, ClearPin: OutputPin> {
+struct Segment<Gpio> {
     state: SegmentState,
-    pins: SegmentPins<SetPin, ClearPin>,
+    pin_set: Gpio,
+    pin_clr: Gpio,
 }
 
 impl<
-SetPin: OutputPin,
-ClearPin: OutputPin,
-> Segment<SetPin, ClearPin> {
-    fn new(pins: SegmentPins<SetPin, ClearPin>) -> Self {
-        Self { state: SegmentState::Unknown, pins }
+Gpio: OutputPin,
+> Segment<Gpio> {
+    fn new(set: Gpio, clear: Gpio) -> Self {
+        Self { state: SegmentState::Unknown, pin_set: set, pin_clr: clear }
     }
 
     fn set(&mut self, on: bool) {
@@ -40,15 +38,15 @@ ClearPin: OutputPin,
         }
 
         match new_state {
-            SegmentState::On => { self.pins.1.set_high().ok(); }
-            SegmentState::Off => { self.pins.0.set_high().ok(); }
+            SegmentState::On => { self.pin_set.set_high().ok(); }
+            SegmentState::Off => { self.pin_clr.set_high().ok(); }
             _ => {}
         }
         self.state = new_state;
     }
     fn clear_pins(&mut self) {
-        self.pins.1.set_low().ok();
-        self.pins.0.set_low().ok();
+        self.pin_set.set_low().ok();
+        self.pin_clr.set_low().ok();
     }
 }
 
@@ -63,13 +61,12 @@ fn main() -> ! {
     let gpioa = p.GPIOA.split(&mut rcc);
 
     // (Re-)configure PA1 as output
-    let pins = cortex_m::interrupt::free(|cs| {
-        (gpioa.pa0.into_push_pull_output(cs),
-        gpioa.pa7.into_push_pull_output(cs),
+    let mut segment = cortex_m::interrupt::free(|cs| {
+        Segment::new(gpioa.pa0.into_push_pull_output(cs).downgrade(),
+        gpioa.pa7.into_push_pull_output(cs).downgrade(),
         )
     });
 
-    let mut segment = Segment::new(pins);
     let mut on = false;
 
     loop {
