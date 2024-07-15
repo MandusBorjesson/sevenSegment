@@ -1,52 +1,59 @@
-//! Blinks an LED
-//!
-//! This assumes that a LED is connected to pc13 as is the case on the blue pill board.
-//!
-//! Note: Without additional hardware, PC13 should not be used to drive an LED, see page 5.1.2 of
-//! the reference manual for an explanation. This is not an issue on the blue pill.
-
-#![deny(unsafe_code)]
-#![no_std]
 #![no_main]
+#![no_std]
 
 use panic_halt as _;
-
-use nb::block;
-
+use stm32f0xx_hal as hal;
+use crate::hal::{pac, prelude::*};
 use cortex_m_rt::entry;
-use stm32f1xx_hal::{pac, prelude::*, timer::Timer};
+use crate::hal::i2c::Error;
+
+enum SegmentState {
+    Set,
+    Cleared,
+    Unknown,
+}
+
+struct Segment {
+    state: SegmentState,
+    pin_set: &dyn embedded_hal::digital::v2::OutputPin<Error = Error>,
+    pin_clr: &dyn embedded_hal::digital::v2::OutputPin<Error = Error>,
+}
+
+impl Segment {
+    fn show(&self, _enable: bool) {
+
+
+    }
+
+    fn clear_pins(&self) {
+        self.pin_set.set_low().ok();
+        self.pin_clr.set_low().ok();
+    }
+}
 
 #[entry]
 fn main() -> ! {
-    // Get access to the core peripherals from the cortex-m crate
-    let cp = cortex_m::Peripherals::take().unwrap();
-    // Get access to the device specific peripherals from the peripheral access crate
-    let dp = pac::Peripherals::take().unwrap();
+    if let Some(mut p) = pac::Peripherals::take() {
+        let mut rcc = p.RCC.configure().sysclk(8.mhz()).freeze(&mut p.FLASH);
 
-    // Take ownership over the raw flash and rcc devices and convert them into the corresponding
-    // HAL structs
-    let mut flash = dp.FLASH.constrain();
-    let rcc = dp.RCC.constrain();
+        let gpioa = p.GPIOA.split(&mut rcc);
 
-    // Freeze the configuration of all the clocks in the system and store the frozen frequencies in
-    // `clocks`
-    let clocks = rcc.cfgr.freeze(&mut flash.acr);
+        // (Re-)configure PA1 as output
+        let mut led = cortex_m::interrupt::free(|cs| gpioa.pa15.into_push_pull_output(cs));
 
-    // Acquire the GPIOC peripheral
-    let mut gpioc = dp.GPIOC.split();
+        loop {
+            // Turn PA1 on a million times in a row
+            for _ in 0..10_000 {
+                led.set_high().ok();
+            }
+            // Then turn PA1 off a million times in a row
+            for _ in 0..10_000 {
+                led.set_low().ok();
+            }
+        }
+    }
 
-    // Configure gpio C pin 13 as a push-pull output. The `crh` register is passed to the function
-    // in order to configure the port. For pins 0-7, crl should be passed instead.
-    let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
-    // Configure the syst timer to trigger an update every second
-    let mut timer = Timer::syst(cp.SYST, &clocks).counter_hz();
-    timer.start(5.Hz()).unwrap();
-
-    // Wait for the timer to trigger an update and change the state of the LED
     loop {
-        block!(timer.wait()).unwrap();
-        led.set_high();
-        block!(timer.wait()).unwrap();
-        led.set_low();
+        continue;
     }
 }

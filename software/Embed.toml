@@ -1,0 +1,11 @@
+[default.general]
+chip = "stm32f051k8ux"
+
+[default.rtt]
+enabled = false
+
+[default.gdb]
+enabled = false
+
+[default.reset]
+halt_afterwards = false
