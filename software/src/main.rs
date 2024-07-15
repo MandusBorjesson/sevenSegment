@@ -3,57 +3,81 @@
 
 use panic_halt as _;
 use stm32f0xx_hal as hal;
-use crate::hal::{pac, prelude::*};
+use crate::hal::{delay::Delay, pac, prelude::*};
+use cortex_m;
 use cortex_m_rt::entry;
-use crate::hal::i2c::Error;
+use embedded_hal::digital::v2::OutputPin;
 
+#[derive(PartialEq)]
 enum SegmentState {
-    Set,
-    Cleared,
+    On,
+    Off,
     Unknown,
 }
 
-struct Segment {
+type SegmentPins<Set, Clear> = (Clear, Set);
+
+struct Segment<SetPin: OutputPin, ClearPin: OutputPin> {
     state: SegmentState,
-    pin_set: &dyn embedded_hal::digital::v2::OutputPin<Error = Error>,
-    pin_clr: &dyn embedded_hal::digital::v2::OutputPin<Error = Error>,
+    pins: SegmentPins<SetPin, ClearPin>,
 }
 
-impl Segment {
-    fn show(&self, _enable: bool) {
-
-
+impl<
+SetPin: OutputPin,
+ClearPin: OutputPin,
+> Segment<SetPin, ClearPin> {
+    fn new(pins: SegmentPins<SetPin, ClearPin>) -> Self {
+        Self { state: SegmentState::Unknown, pins }
     }
 
-    fn clear_pins(&self) {
-        self.pin_set.set_low().ok();
-        self.pin_clr.set_low().ok();
+    fn set(&mut self, on: bool) {
+        let new_state = if on {SegmentState::On} else {SegmentState::Off};
+
+        // Energizing the coil at this point would only be a waste of energy, only actuate them
+        // when they are expected to change state.
+        if self.state == new_state {
+            return;
+        }
+
+        match new_state {
+            SegmentState::On => { self.pins.1.set_high().ok(); }
+            SegmentState::Off => { self.pins.0.set_high().ok(); }
+            _ => {}
+        }
+        self.state = new_state;
+    }
+    fn clear_pins(&mut self) {
+        self.pins.1.set_low().ok();
+        self.pins.0.set_low().ok();
     }
 }
 
 #[entry]
 fn main() -> ! {
-    if let Some(mut p) = pac::Peripherals::take() {
-        let mut rcc = p.RCC.configure().sysclk(8.mhz()).freeze(&mut p.FLASH);
+    let mut p = pac::Peripherals::take().unwrap();
+    let cp = cortex_m::Peripherals::take().unwrap();
 
-        let gpioa = p.GPIOA.split(&mut rcc);
+    let mut rcc = p.RCC.configure().sysclk(8.mhz()).freeze(&mut p.FLASH);
+    let mut delay = Delay::new(cp.SYST, &rcc);
 
-        // (Re-)configure PA1 as output
-        let mut led = cortex_m::interrupt::free(|cs| gpioa.pa15.into_push_pull_output(cs));
+    let gpioa = p.GPIOA.split(&mut rcc);
 
-        loop {
-            // Turn PA1 on a million times in a row
-            for _ in 0..10_000 {
-                led.set_high().ok();
-            }
-            // Then turn PA1 off a million times in a row
-            for _ in 0..10_000 {
-                led.set_low().ok();
-            }
-        }
-    }
+    // (Re-)configure PA1 as output
+    let pins = cortex_m::interrupt::free(|cs| {
+        (gpioa.pa0.into_push_pull_output(cs),
+        gpioa.pa7.into_push_pull_output(cs),
+        )
+    });
+
+    let mut segment = Segment::new(pins);
+    let mut on = false;
 
     loop {
-        continue;
+        on = !on;
+        segment.set(on);
+        delay.delay_ms(100_u16);
+
+        segment.clear_pins();
+        delay.delay_ms(1000_u16);
     }
 }
