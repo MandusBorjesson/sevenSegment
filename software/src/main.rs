@@ -12,6 +12,12 @@ const DIGIT_SELECTORS: usize = 3;
 const DIGITS: usize = 0x01 << DIGIT_SELECTORS;
 const SEGMENTS: usize = 7;
 
+#[derive(PartialEq)]
+enum HwError {
+    OutOfRange,
+    DoesNotExist,
+}
+
 struct Segment<Gpio> {
     pin_set: Gpio,
     pin_clr: Gpio,
@@ -60,14 +66,17 @@ Gpio: OutputPin,
         Self { segments: [a, b, c, d, e, f, g], state: [None; DIGITS] }
     }
 
-    fn update(&mut self, digit: usize, new_state: [bool; SEGMENTS]) {
+    fn update(&mut self, digit: usize, new_state: [bool; SEGMENTS]) -> Result<bool, HwError> {
         if digit >= self.state.len() {
-            return;
+            return Err(HwError::DoesNotExist);
         }
+        let mut requires_update: bool = false;
+
         match self.state[digit] {
             None => {
                 for segment in 0..self.segments.len() {
                     self.segments[segment].set(new_state[segment]);
+                    requires_update = true;
                 }
             }
             Some(old_state) => {
@@ -76,6 +85,7 @@ Gpio: OutputPin,
                     // only actuate segments when they are expected to change state.
                     if old_state[segment] != new_state[segment] {
                         self.segments[segment].set(new_state[segment]);
+                        requires_update = true;
                     } else {
                         self.segments[segment].clear_pins();
                     }
@@ -83,21 +93,22 @@ Gpio: OutputPin,
             }
         }
         self.state[digit] = Some(new_state);
+        Ok(requires_update)
     }
 
-    fn display_number(&mut self, digit: usize, number: usize) {
+    fn display_number(&mut self, digit: usize, number: usize) -> Result<bool, HwError> {
         match number {
-            0 => { self.update(digit, [true, true, true, true, true, true, false]); }
-            1 => { self.update(digit, [false, true, true, false, false, false, false]); }
-            2 => { self.update(digit, [true, true, false, true, true, false, true]); }
-            3 => { self.update(digit, [true, true, true, true, false, false, true]); }
-            4 => { self.update(digit, [false, true, true, false, false, true, true]); }
-            5 => { self.update(digit, [true, false, true, true, false, true, true]); }
-            6 => { self.update(digit, [true, false, true, true, true, true, true]); }
-            7 => { self.update(digit, [true, true, true, false, false, false, false]); }
-            8 => { self.update(digit, [true, true, true, true, true, true, true]); }
-            9 => { self.update(digit, [true, true, true, true, false, true, true]); }
-            _ => {}
+            0 => { self.update(digit, [true, true, true, true, true, true, false]) }
+            1 => { self.update(digit, [false, true, true, false, false, false, false]) }
+            2 => { self.update(digit, [true, true, false, true, true, false, true]) }
+            3 => { self.update(digit, [true, true, true, true, false, false, true]) }
+            4 => { self.update(digit, [false, true, true, false, false, true, true]) }
+            5 => { self.update(digit, [true, false, true, true, false, true, true]) }
+            6 => { self.update(digit, [true, false, true, true, true, true, true]) }
+            7 => { self.update(digit, [true, true, true, false, false, false, false]) }
+            8 => { self.update(digit, [true, true, true, true, true, true, true]) }
+            9 => { self.update(digit, [true, true, true, true, false, true, true]) }
+            _ => { Err(HwError::OutOfRange) }
         }
     }
 
@@ -120,10 +131,10 @@ Gpio: OutputPin,
         Self { pins_control: control, pin_enable: enable }
     }
 
-    fn strobe(&mut self, digit: usize, delay: &mut Delay) {
+    fn strobe(&mut self, digit: usize, delay: &mut Delay)  -> Result<(), HwError> {
         // We can control a maximum of two to the power of "number of control pins" digits
         if digit >= (0x01 << self.pins_control.len()) {
-            return;
+            return Err(HwError::DoesNotExist);
         }
         for n in 0..self.pins_control.len() {
             let pin_state = if (digit & 0x01 << n) > 0 {PinState::High} else {PinState::Low};
@@ -132,7 +143,7 @@ Gpio: OutputPin,
         self.pin_enable.set_high().ok();
         delay.delay_ms(100_u16);
         self.pin_enable.set_low().ok();
-
+        Ok(())
     }
 }
 
@@ -200,8 +211,11 @@ fn main() -> ! {
     loop {
         for number in 0..10 {
             for digit in 0..8 {
-                controller.display_number(digit, (digit+number) % 10);
-                selector.strobe(digit, &mut delay);
+                let result = controller.display_number(digit, (digit+number) % 10);
+                if result == Ok(true) {
+                    // We can't do much but cry if this fails, ignore the result...
+                    let _ = selector.strobe(digit, &mut delay);
+                }
             }
             controller.clear_pins();
             delay.delay_ms(1000_u16);
