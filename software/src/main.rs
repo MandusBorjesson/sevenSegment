@@ -208,17 +208,21 @@ fn main() -> ! {
         )
     });
 
+    let mut count = 0;
     loop {
-        for number in 0..10 {
-            for digit in 0..8 {
-                let result = controller.display_number(digit, (digit+number) % 10);
-                if result == Ok(true) {
-                    // We can't do much but cry if this fails, ignore the result...
-                    let _ = selector.strobe(digit, &mut delay);
-                }
+        let mut tmp = count;
+        for digit in 0..DIGITS {
+            let digit_val = tmp % 10;
+            tmp /= 10;
+
+            let result = controller.display_number(digit, digit_val);
+            if result == Ok(true) {
+                // We can't do much but cry if this fails, ignore the result...
+                let _ = selector.strobe(digit, &mut delay);
             }
-            controller.clear_pins();
-            delay.delay_ms(1000_u16);
         }
+        controller.clear_pins();
+        delay.delay_ms(1000_u16);
+        count += 1;
     }
 }
