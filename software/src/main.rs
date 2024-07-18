@@ -3,10 +3,11 @@
 
 use panic_halt as _;
 use stm32f0xx_hal as hal;
+use stm32f0xx_hal::gpio::{Output, Pin, PushPull};
 use crate::hal::{delay::Delay, pac, prelude::*};
 use cortex_m;
 use cortex_m_rt::entry;
-use embedded_hal::digital::v2::{OutputPin, PinState};
+use embedded_hal::digital::v2::PinState;
 
 const DIGIT_SELECTORS: usize = 3;
 const DIGITS: usize = 0x01 << DIGIT_SELECTORS;
@@ -18,15 +19,13 @@ enum HwError {
     DoesNotExist,
 }
 
-struct Segment<Gpio> {
-    pin_set: Gpio,
-    pin_clr: Gpio,
+struct Segment {
+    pin_set: Pin<Output<PushPull>>,
+    pin_clr: Pin<Output<PushPull>>,
 }
 
-impl<
-Gpio: OutputPin,
-> Segment<Gpio> {
-    fn new(set: Gpio, clear: Gpio) -> Self {
+impl Segment {
+    fn new(set: Pin<Output<PushPull>>, clear: Pin<Output<PushPull>>) -> Self {
         Self { pin_set: set, pin_clr: clear }
     }
 
@@ -49,20 +48,18 @@ Gpio: OutputPin,
     }
 }
 
-struct DigitController<Gpio> {
+struct DigitController {
     //   *  A/0  *
     //  F/5     B/1
     //   *  G/6  *
     //  E/4     C/2
     //   *  D/3  *
-    segments: [Segment<Gpio>; SEGMENTS],
+    segments: [Segment; SEGMENTS],
     state: [Option<[bool; SEGMENTS]>; DIGITS],
 }
 
-impl<
-Gpio: OutputPin,
-> DigitController<Gpio> {
-    fn new(a: Segment<Gpio>, b: Segment<Gpio>, c: Segment<Gpio>, d: Segment<Gpio>, e: Segment<Gpio>, f: Segment<Gpio>, g: Segment<Gpio>) -> Self {
+impl DigitController {
+    fn new(a: Segment, b: Segment, c: Segment, d: Segment, e: Segment, f: Segment, g: Segment) -> Self {
         Self { segments: [a, b, c, d, e, f, g], state: [None; DIGITS] }
     }
 
@@ -120,15 +117,13 @@ Gpio: OutputPin,
     }
 }
 
-struct DigitSelector<Gpio> {
-    pins_control: [Gpio; DIGIT_SELECTORS],
-    pin_enable: Gpio,
+struct DigitSelector {
+    pins_control: [Pin<Output<PushPull>>; DIGIT_SELECTORS],
+    pin_enable: Pin<Output<PushPull>>,
 }
 
-impl<
-Gpio: OutputPin,
-> DigitSelector<Gpio> {
-    fn new(control: [Gpio; DIGIT_SELECTORS], enable: Gpio) -> Self {
+impl DigitSelector {
+    fn new(control: [Pin<Output<PushPull>>; DIGIT_SELECTORS], enable: Pin<Output<PushPull>>) -> Self {
         Self { pins_control: control, pin_enable: enable }
     }
 
