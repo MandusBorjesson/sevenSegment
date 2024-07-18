@@ -96,18 +96,19 @@ Gpio: OutputPin,
         Ok(requires_update)
     }
 
-    fn display_number(&mut self, digit: usize, number: usize) -> Result<bool, HwError> {
+    fn display_number(&mut self, digit: usize, number: Option<usize>) -> Result<bool, HwError> {
         match number {
-            0 => { self.update(digit, [true, true, true, true, true, true, false]) }
-            1 => { self.update(digit, [false, true, true, false, false, false, false]) }
-            2 => { self.update(digit, [true, true, false, true, true, false, true]) }
-            3 => { self.update(digit, [true, true, true, true, false, false, true]) }
-            4 => { self.update(digit, [false, true, true, false, false, true, true]) }
-            5 => { self.update(digit, [true, false, true, true, false, true, true]) }
-            6 => { self.update(digit, [true, false, true, true, true, true, true]) }
-            7 => { self.update(digit, [true, true, true, false, false, false, false]) }
-            8 => { self.update(digit, [true, true, true, true, true, true, true]) }
-            9 => { self.update(digit, [true, true, true, true, false, true, true]) }
+            Some(0) => { self.update(digit, [true, true, true, true, true, true, false]) }
+            Some(1) => { self.update(digit, [false, true, true, false, false, false, false]) }
+            Some(2) => { self.update(digit, [true, true, false, true, true, false, true]) }
+            Some(3) => { self.update(digit, [true, true, true, true, false, false, true]) }
+            Some(4) => { self.update(digit, [false, true, true, false, false, true, true]) }
+            Some(5) => { self.update(digit, [true, false, true, true, false, true, true]) }
+            Some(6) => { self.update(digit, [true, false, true, true, true, true, true]) }
+            Some(7) => { self.update(digit, [true, true, true, false, false, false, false]) }
+            Some(8) => { self.update(digit, [true, true, true, true, true, true, true]) }
+            Some(9) => { self.update(digit, [true, true, true, true, false, true, true]) }
+            None => { self.update(digit, [false, false, false, false, false, false, false]) }
             _ => { Err(HwError::OutOfRange) }
         }
     }
@@ -212,7 +213,8 @@ fn main() -> ! {
     loop {
         let mut tmp = count;
         for digit in 0..DIGITS {
-            let digit_val = tmp % 10;
+            // Don't show leading zeros. Instead, blank the digits
+            let digit_val = if tmp > 0 || (count == 0 && digit == 0) {Some(tmp % 10)} else {None};
             tmp /= 10;
 
             let result = controller.display_number(digit, digit_val);
