@@ -1,3 +1,4 @@
 (sym_lib_table
   (lib (name "431256083716")(type "KiCad")(uri "${KIPRJMOD}/pushbutton.pretty/431256083716.kicad_sym")(options "")(descr ""))
+  (lib (name "TPS22810DBVT")(type "KiCad")(uri "${KIPRJMOD}/TPS22810DBVT.pretty/TPS22810DBVT.kicad_sym")(options "")(descr ""))
 )

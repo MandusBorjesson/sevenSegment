@@ -1,0 +1,9 @@
+EESchema-DOCLIB  Version 2.0
+#
+$CMP TPS22810DBVT
+D 18V, 3A, 79m load switch with adjustable rise time, adj. quick output discharge, & thermal shutdown
+K
+F http://www.ti.com/lit/gpn/TPS22810
+$ENDCMP
+#
+#End Doc Library
