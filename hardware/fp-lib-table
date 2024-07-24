@@ -1,0 +1,6 @@
+(fp_lib_table
+  (lib (name "klauke")(type "KiCad")(uri "${KIPRJMOD}/klauke.pretty")(options "")(descr ""))
+  (lib (name "PJ_102AH")(type "KiCad")(uri "${KIPRJMOD}/PJ_102AH.pretty")(options "")(descr ""))
+  (lib (name "7761")(type "KiCad")(uri "${KIPRJMOD}/7761.pretty")(options "")(descr ""))
+  (lib (name "pushbutton")(type "KiCad")(uri "${KIPRJMOD}/pushbutton.pretty")(options "")(descr ""))
+)
