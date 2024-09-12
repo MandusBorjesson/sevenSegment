@@ -9,14 +9,101 @@ use cortex_m;
 use cortex_m_rt::entry;
 use embedded_hal::digital::v2::PinState;
 
-const DIGIT_SELECTORS: usize = 3;
-const DIGITS: usize = 0x01 << DIGIT_SELECTORS;
+const DIGITS: usize = 4;
 const SEGMENTS: usize = 7;
 
 #[derive(PartialEq)]
 enum HwError {
     OutOfRange,
     DoesNotExist,
+}
+
+trait DigitController {
+
+    fn update(&mut self, digit: usize, new_state: [bool; SEGMENTS]) -> Result<bool, HwError>;
+    fn clear_pins(&mut self);
+
+    fn display_number(&mut self, digit: usize, number: Option<usize>) -> Result<bool, HwError> {
+        match number {
+            Some(0) => { self.update(digit, [true, true, true, true, true, true, false]) }
+            Some(1) => { self.update(digit, [false, true, true, false, false, false, false]) }
+            Some(2) => { self.update(digit, [true, true, false, true, true, false, true]) }
+            Some(3) => { self.update(digit, [true, true, true, true, false, false, true]) }
+            Some(4) => { self.update(digit, [false, true, true, false, false, true, true]) }
+            Some(5) => { self.update(digit, [true, false, true, true, false, true, true]) }
+            Some(6) => { self.update(digit, [true, false, true, true, true, true, true]) }
+            Some(7) => { self.update(digit, [true, true, true, false, false, false, false]) }
+            Some(8) => { self.update(digit, [true, true, true, true, true, true, true]) }
+            Some(9) => { self.update(digit, [true, true, true, true, false, true, true]) }
+            None => { self.update(digit, [false, false, false, false, false, false, false]) }
+            _ => { Err(HwError::OutOfRange) }
+        }
+    }
+}
+
+struct DigitControllerBitBangedExpander {
+    pin_data: Pin<Output<PushPull>>,
+    pin_clock: Pin<Output<PushPull>>,
+    pin_enable: Pin<Output<PushPull>>,
+    state: [Option<[bool; SEGMENTS]>; DIGITS],
+}
+
+impl DigitControllerBitBangedExpander {
+    fn new(data: Pin<Output<PushPull>>, clock: Pin<Output<PushPull>>, enable: Pin<Output<PushPull>>) -> Self {
+        Self { pin_data: data, pin_clock: clock, pin_enable: enable, state: [None; DIGITS] }
+    }
+}
+
+impl DigitController for DigitControllerBitBangedExpander {
+    fn update(&mut self, digit: usize, new_state: [bool; SEGMENTS]) -> Result<bool, HwError> {
+        if digit >= self.state.len() {
+            return Err(HwError::DoesNotExist);
+        }
+
+        let mut reg_state: u16 = 0;
+
+        const A_SET: u16 = 13;
+        const A_CLR: u16 = 15;
+        const B_SET: u16 = 9;
+        const B_CLR: u16 = 11;
+        const C_SET: u16 = 4;
+        const C_CLR: u16 = 6;
+        const D_SET: u16 = 2;
+        const D_CLR: u16 = 1;
+        const E_SET: u16 = 5;
+        const E_CLR: u16 = 3;
+        const F_SET: u16 = 10;
+        const F_CLR: u16 = 7;
+        const G_SET: u16 = 12;
+        const G_CLR: u16 = 14;
+
+        match self.state[digit] {
+            None => {
+                reg_state |= 1 << (if new_state[0] { A_SET } else { A_CLR });
+                reg_state |= 1 << (if new_state[1] { B_SET } else { B_CLR });
+                reg_state |= 1 << (if new_state[2] { C_SET } else { C_CLR });
+                reg_state |= 1 << (if new_state[3] { D_SET } else { D_CLR });
+                reg_state |= 1 << (if new_state[4] { E_SET } else { E_CLR });
+                reg_state |= 1 << (if new_state[5] { F_SET } else { F_CLR });
+                reg_state |= 1 << (if new_state[6] { G_SET } else { G_CLR });
+            }
+            Some(old_state) => {
+                reg_state |= ((old_state[0] != new_state[0]) as u16) << (if new_state[0] { A_SET } else { A_CLR });
+                reg_state |= ((old_state[1] != new_state[1]) as u16) << (if new_state[1] { B_SET } else { B_CLR });
+                reg_state |= ((old_state[2] != new_state[2]) as u16) << (if new_state[2] { C_SET } else { C_CLR });
+                reg_state |= ((old_state[3] != new_state[3]) as u16) << (if new_state[3] { D_SET } else { D_CLR });
+                reg_state |= ((old_state[4] != new_state[4]) as u16) << (if new_state[4] { E_SET } else { E_CLR });
+                reg_state |= ((old_state[5] != new_state[5]) as u16) << (if new_state[5] { F_SET } else { F_CLR });
+                reg_state |= ((old_state[6] != new_state[6]) as u16) << (if new_state[6] { G_SET } else { G_CLR });
+            }
+        }
+        let requires_update: bool = if reg_state != 0 { true } else { false };
+        self.state[digit] = Some(new_state);
+        Ok(requires_update)
+    }
+
+    fn clear_pins(&mut self) {
+    }
 }
 
 struct Segment {
@@ -48,7 +135,7 @@ impl Segment {
     }
 }
 
-struct DigitController {
+struct DigitControllerDirect {
     //   *  A/0  *
     //  F/5     B/1
     //   *  G/6  *
@@ -58,11 +145,13 @@ struct DigitController {
     state: [Option<[bool; SEGMENTS]>; DIGITS],
 }
 
-impl DigitController {
+impl DigitControllerDirect {
     fn new(a: Segment, b: Segment, c: Segment, d: Segment, e: Segment, f: Segment, g: Segment) -> Self {
         Self { segments: [a, b, c, d, e, f, g], state: [None; DIGITS] }
     }
+}
 
+impl DigitController for DigitControllerDirect {
     fn update(&mut self, digit: usize, new_state: [bool; SEGMENTS]) -> Result<bool, HwError> {
         if digit >= self.state.len() {
             return Err(HwError::DoesNotExist);
@@ -93,23 +182,6 @@ impl DigitController {
         Ok(requires_update)
     }
 
-    fn display_number(&mut self, digit: usize, number: Option<usize>) -> Result<bool, HwError> {
-        match number {
-            Some(0) => { self.update(digit, [true, true, true, true, true, true, false]) }
-            Some(1) => { self.update(digit, [false, true, true, false, false, false, false]) }
-            Some(2) => { self.update(digit, [true, true, false, true, true, false, true]) }
-            Some(3) => { self.update(digit, [true, true, true, true, false, false, true]) }
-            Some(4) => { self.update(digit, [false, true, true, false, false, true, true]) }
-            Some(5) => { self.update(digit, [true, false, true, true, false, true, true]) }
-            Some(6) => { self.update(digit, [true, false, true, true, true, true, true]) }
-            Some(7) => { self.update(digit, [true, true, true, false, false, false, false]) }
-            Some(8) => { self.update(digit, [true, true, true, true, true, true, true]) }
-            Some(9) => { self.update(digit, [true, true, true, true, false, true, true]) }
-            None => { self.update(digit, [false, false, false, false, false, false, false]) }
-            _ => { Err(HwError::OutOfRange) }
-        }
-    }
-
     fn clear_pins(&mut self) {
         for segment in self.segments.iter_mut() {
             segment.clear_pins();
@@ -118,27 +190,21 @@ impl DigitController {
 }
 
 struct DigitSelector {
-    pins_control: [Pin<Output<PushPull>>; DIGIT_SELECTORS],
-    pin_enable: Pin<Output<PushPull>>,
+    pins_control: [Pin<Output<PushPull>>; DIGITS],
 }
 
 impl DigitSelector {
-    fn new(control: [Pin<Output<PushPull>>; DIGIT_SELECTORS], enable: Pin<Output<PushPull>>) -> Self {
-        Self { pins_control: control, pin_enable: enable }
+    fn new(control: [Pin<Output<PushPull>>; DIGITS]) -> Self {
+        Self { pins_control: control }
     }
 
     fn strobe(&mut self, digit: usize, delay: &mut Delay)  -> Result<(), HwError> {
-        // We can control a maximum of two to the power of "number of control pins" digits
-        if digit >= (0x01 << self.pins_control.len()) {
+        if digit >= self.pins_control.len() {
             return Err(HwError::DoesNotExist);
         }
-        for n in 0..self.pins_control.len() {
-            let pin_state = if (digit & 0x01 << n) > 0 {PinState::High} else {PinState::Low};
-            self.pins_control[n].set_state(pin_state).ok();
-        }
-        self.pin_enable.set_high().ok();
+        self.pins_control[digit].set_high().ok();
         delay.delay_ms(100_u16);
-        self.pin_enable.set_low().ok();
+        self.pins_control[digit].set_low().ok();
         Ok(())
     }
 }
@@ -156,50 +222,18 @@ fn main() -> ! {
 
     let (mut controller, mut selector) = cortex_m::interrupt::free(|cs| {
         (
-            DigitController::new(
-                // A
-                Segment::new(
-                    gpioa.pa0.into_push_pull_output(cs).downgrade(),
-                    gpioa.pa7.into_push_pull_output(cs).downgrade(),
-                ),
-                // B
-                Segment::new(
-                    gpioa.pa1.into_push_pull_output(cs).downgrade(),
-                    gpiob.pb0.into_push_pull_output(cs).downgrade(),
-                ),
-                // C
-                Segment::new(
-                    gpioa.pa2.into_push_pull_output(cs).downgrade(),
-                    gpiob.pb1.into_push_pull_output(cs).downgrade(),
-                ),
-                // D
-                Segment::new(
-                    gpioa.pa3.into_push_pull_output(cs).downgrade(),
-                    gpiob.pb2.into_push_pull_output(cs).downgrade(),
-                ),
-                // E
-                Segment::new(
-                    gpioa.pa4.into_push_pull_output(cs).downgrade(),
-                    gpioa.pa8.into_push_pull_output(cs).downgrade(),
-                ),
-                // F
-                Segment::new(
-                    gpioa.pa5.into_push_pull_output(cs).downgrade(),
-                    gpioa.pa11.into_push_pull_output(cs).downgrade(),
-                ),
-                // G
-                Segment::new(
-                    gpioa.pa6.into_push_pull_output(cs).downgrade(),
-                    gpioa.pa12.into_push_pull_output(cs).downgrade(),
-                )
+            DigitControllerBitBangedExpander::new(
+                gpioa.pa7.into_push_pull_output(cs).downgrade(),
+                gpioa.pa5.into_push_pull_output(cs).downgrade(),
+                gpioa.pa4.into_push_pull_output(cs).downgrade(),
             ),
             DigitSelector::new(
                 [
-                    gpiob.pb5.into_push_pull_output(cs).downgrade(),
-                    gpiob.pb4.into_push_pull_output(cs).downgrade(),
-                    gpiob.pb3.into_push_pull_output(cs).downgrade(),
+                    gpiob.pb0.into_push_pull_output(cs).downgrade(),
+                    gpiob.pb1.into_push_pull_output(cs).downgrade(),
+                    gpiob.pb2.into_push_pull_output(cs).downgrade(),
+                    gpioa.pa8.into_push_pull_output(cs).downgrade(),
                 ],
-                gpioa.pa15.into_push_pull_output(cs).downgrade(),
             )
         )
     });
