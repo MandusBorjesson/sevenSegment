@@ -1,0 +1,7 @@
+menu "Zephyr"
+source "Kconfig.zephyr"
+endmenu
+
+module = segment_controller
+module-str = "Seven-segment display controller"
+source "subsys/logging/Kconfig.template.log_config"

@@ -40,7 +40,7 @@ RUN wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.8/
     tar xvf zephyr-sdk-0.16.8_linux-x86_64.tar.xz
 
 RUN cp -r zephyr-sdk-0.16.8 /opt && \
-    /opt/zephyr-sdk-0.16.8/setup.sh -c
+    /opt/zephyr-sdk-0.16.8/setup.sh -c -h -t all
 
 COPY zephyr/scripts/requirements* .
 RUN pip install -r requirements.txt

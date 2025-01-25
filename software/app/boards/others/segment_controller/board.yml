@@ -1,0 +1,6 @@
+board:
+  name: segment_controller
+  full_name: Seven-segment-controller
+  vendor: other
+  socs:
+  - name: esp32
