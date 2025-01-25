@@ -1,0 +1,13 @@
+#!/bin/sh
+
+echo "$(whoami):x:$(id -u):$(id -g)::/:/bin/sh" > /tmp/fakepasswd
+mkdir /tmp/cache
+
+docker run \
+    -it \
+    -v $(pwd):/home \
+    -v /tmp/cache:/.cache \
+    -v /tmp/fakepasswd:/etc/passwd \
+    -u $(id -u):$(id -g) \
+    seven_segment \
+    /bin/bash
