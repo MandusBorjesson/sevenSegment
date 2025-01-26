@@ -3,13 +3,20 @@
 echo "$(whoami):x:$(id -u):$(id -g)::/:/bin/sh" > /tmp/fakepasswd
 mkdir /tmp/cache > /dev/null 2>&1
 
+DOCKER_ARGS=""
+
+# Mount serial ports for flashing/debugging
+for dev in /dev/dut-*; do
+    [ -e "$dev" ] || continue
+    DOCKER_ARGS="${DOCKER_ARGS} --device $(readlink -f ${dev})"
+done
+
 docker run \
     -it \
     -v $(pwd):/home \
     -v /tmp/cache:/.cache \
     -v /tmp/fakepasswd:/etc/passwd \
     -u $(id -u):$(id -g) \
+    ${DOCKER_ARGS} \
     seven_segment \
     west $@
-#     --device /dev/ttyUSB0 \
-#     --device /dev/ttyUSB1 \
