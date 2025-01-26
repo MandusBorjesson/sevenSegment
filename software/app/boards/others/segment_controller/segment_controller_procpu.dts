@@ -8,7 +8,6 @@
 #include <espressif/esp32/esp32_wroom_32ue_n4.dtsi>
 #include "segment_controller-pinctrl.dtsi"
 #include <zephyr/dt-bindings/input/input-event-codes.h>
-#include <zephyr/dt-bindings/input/esp32-touch-sensor-input.h>
 #include <espressif/partitions_0x1000_amp.dtsi>
 
 / {
@@ -38,6 +37,26 @@
 		zephyr,code-partition = &slot0_partition;
 		zephyr,bt-hci = &esp32_bt_hci;
 	};
+
+    relays {
+    	compatible = "gpio-leds";
+    	relay_0: relay_0 {
+    		gpios = <&gpio0 17 GPIO_ACTIVE_HIGH>;
+    		label = "RELAY_0";
+    	};
+    	relay_1: relay_1 {
+    		gpios = <&gpio0 18 GPIO_ACTIVE_HIGH>;
+    		label = "RELAY_1";
+    	};
+    	relay_2: relay_2 {
+    		gpios = <&gpio0 22 GPIO_ACTIVE_HIGH>;
+    		label = "RELAY_2";
+    	};
+    	relay_3: relay_3 {
+    		gpios = <&gpio0 23 GPIO_ACTIVE_HIGH>;
+    		label = "RELAY_3";
+    	};
+    };
 };
 
 &uart0 {
