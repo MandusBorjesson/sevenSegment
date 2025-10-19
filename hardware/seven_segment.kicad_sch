@@ -6414,6 +6414,26 @@
 		)
 		(uuid "4f9ab577-ade3-40de-95d8-8cd5e422c728")
 	)
+	(label "sreg_oe"
+		(at 106.68 138.43 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "5d54d863-ced9-4973-aba2-efa524c0964f")
+	)
+	(label "sreg_sclk"
+		(at 106.68 128.27 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "92c6f1c5-f723-4822-b6cd-3e49e53f8db4")
+	)
 	(label "EN"
 		(at 69.85 85.09 0)
 		(effects
@@ -6433,6 +6453,16 @@
 			(justify left bottom)
 		)
 		(uuid "9fcd733f-7381-4b78-81aa-6840b8594049")
+	)
+	(label "sreg_data"
+		(at 106.68 135.89 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "d240cbdf-8544-45be-a027-274468394c7e")
 	)
 	(symbol
 		(lib_id "00_customsymbols:Relay")
