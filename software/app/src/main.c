@@ -32,23 +32,23 @@ static const struct device *const spi_dev = DEVICE_DT_GET(DT_ALIAS(shift_registe
 static int setup_spi(const struct device *dev) {
     printf("%s: setting up...\n", dev->name);
 
-	if (!device_is_ready(dev)) {
-		printf("%s: device not ready.\n", dev->name);
-		return -ENODEV;
-	}
+    if (!device_is_ready(dev)) {
+        printf("%s: device not ready.\n", dev->name);
+        return -ENODEV;
+    }
     return 0;
 }
 
 int main(void)
 {
-	int ret;
-	uint8_t count = 0;
-	struct digit_ctx_t digit_ctx = {0};
+    int ret;
+    uint8_t count = 0;
+    struct digit_ctx_t digit_ctx = {0};
 
-	printf("Starting system...\n");
-	if (!gpio_is_ready_dt(&led)) {
-		return 0;
-	}
+    printf("Starting system...\n");
+    if (!gpio_is_ready_dt(&led)) {
+        return 0;
+    }
 
     ret = setup_spi(spi_dev);
     if (ret) {
@@ -56,36 +56,36 @@ int main(void)
         return ret;
     }
 
-	ret = gpio_pin_configure_dt(&led, GPIO_OUTPUT_ACTIVE);
-	if (ret < 0) {
-		return 0;
-	}
-	printf("Initialized succesfully, entering loop\n");
+    ret = gpio_pin_configure_dt(&led, GPIO_OUTPUT_ACTIVE);
+    if (ret < 0) {
+        return 0;
+    }
+    printf("Initialized succesfully, entering loop\n");
 
-	while (1) {
+    while (1) {
         digit_set_segments(&digit_ctx, count);
         count++;
 
-	    struct spi_config config = {
-	        .frequency = 125000,
-	        .operation = SPI_OP_MODE_MASTER | SPI_WORD_SET(9),
-	        .slave = 0,
+        struct spi_config config = {
+            .frequency = 125000,
+            .operation = SPI_OP_MODE_MASTER | SPI_WORD_SET(9),
+            .slave = 0,
         };
 
-	    uint8_t buff[10] = { 0x01, 0x01, 0x00, 0xff, 0x00, 0xa5, 0x00, 0x00, 0x01, 0x02};
+        uint8_t buff[10] = { 0x01, 0x01, 0x00, 0xff, 0x00, 0xa5, 0x00, 0x00, 0x01, 0x02};
 
-	    struct spi_buf tx_buf = {
+        struct spi_buf tx_buf = {
             .buf = buff,
             .len = sizeof(buff) / sizeof(*buff)
         };
-	    struct spi_buf_set tx_bufs = { .buffers = &tx_buf, .count = 1 };
+        struct spi_buf_set tx_bufs = { .buffers = &tx_buf, .count = 1 };
 
-	    ret = spi_write(spi_dev, &config, &tx_bufs);
+        ret = spi_write(spi_dev, &config, &tx_bufs);
         if (ret) {
             printf("SPI tx failed: %d\n", ret);
         }
 
-		k_msleep(SLEEP_TIME_MS);
-	}
-	return 0;
+        k_msleep(SLEEP_TIME_MS);
+    }
+    return 0;
 }
