@@ -10,11 +10,12 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/spi.h>
 #include <zephyr/logging/log.h>
+#include "digit.h"
 
 LOG_MODULE_DECLARE(app, LOG_LEVEL_DBG);
 
 /* 1000 msec = 1 sec */
-#define SLEEP_TIME_MS   1000
+#define SLEEP_TIME_MS   100
 
 /* The devicetree node identifier for the "led0" alias. */
 #define LED0_NODE DT_ALIAS(led0)
@@ -41,7 +42,8 @@ static int setup_spi(const struct device *dev) {
 int main(void)
 {
 	int ret;
-	bool led_state = true;
+	uint8_t count = 0;
+	struct digit_ctx_t digit_ctx = {0};
 
 	printf("Starting system...\n");
 	if (!gpio_is_ready_dt(&led)) {
@@ -61,13 +63,8 @@ int main(void)
 	printf("Initialized succesfully, entering loop\n");
 
 	while (1) {
-		ret = gpio_pin_toggle_dt(&led);
-		if (ret < 0) {
-			return 0;
-		}
-
-		led_state = !led_state;
-		printf("LED state: %s\n", led_state ? "ON" : "OFF");
+        digit_set_segments(&digit_ctx, count);
+        count++;
 
 	    struct spi_config config = {
 	        .frequency = 125000,
