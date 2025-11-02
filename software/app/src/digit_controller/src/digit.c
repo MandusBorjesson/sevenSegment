@@ -5,27 +5,40 @@
 #define UPDATE_MASK_ALL 0x7F
 #define STATE_INITIALIZED_BIT 0x80
 
-LOG_MODULE_REGISTER(digit_controller, LOG_LEVEL_INF);
+LOG_MODULE_REGISTER(digit_controller, LOG_LEVEL_DBG);
 #define N_SEGMENTS 7
 
-const uint8_t set_indices[N_SEGMENTS] = {
-    11, // A
-    7,  // B
-    3,  // C
-    1,  // D
-    4,  // E
-    8,  // F
-    10, // G
+/*
+ * .------------------------------------------------------------.
+ * : Pin      : 1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16  :
+ * :------------------------------------------------------------:
+ * : Function : X  X  C  S  C  S  S  C  C  S  S  C  S  S  C  C  :
+ * : Segment  : X  X  D  D  E  C  E  C  F  B  F  B  G  A  G  A  :
+ * '------------------------------------------------------------'
+ */
+
+typedef struct segment_t
+{
+    size_t set;
+    size_t clr;
+} segment_t;
+
+const segment_t _segments[N_SEGMENTS] = {
+    { .set = 14, .clr = 16, }, // A
+    { .set = 10, .clr = 12, }, // B
+    { .set = 6,  .clr = 8,  }, // C
+    { .set = 4,  .clr = 3,  }, // D
+    { .set = 7,  .clr = 5,  }, // E
+    { .set = 11, .clr = 9,  }, // F
+    { .set = 13, .clr = 15, }, // G
 };
 
-const uint8_t clr_indices[N_SEGMENTS] = {
-    13, // A
-    9,  // B
-    5,  // C
-    0,  // D
-    2,  // E
-    6,  // F
-    12, // G
+size_t pin_to_offset(size_t pin) {
+    // Offsets from shift registers
+    if (pin >= 10) {
+        return pin - 1;
+    }
+    return pin - 2;
 };
 
 void digit_init(struct digit_ctx_t *ctx) {
@@ -57,9 +70,9 @@ bool digit_set_segments(struct digit_ctx_t *ctx, uint8_t new_state, uint16_t *va
         // Should segment be updated?
         if(update_mask & (1<<i)) {
             if (new_state & (1<<i)) {
-                *value |= 1 << set_indices[i];
+                *value |= 1 << pin_to_offset(_segments[i].set);
             } else {
-                *value |= 1 << clr_indices[i];
+                *value |= 1 << pin_to_offset(_segments[i].clr);
             }
         }
     }
@@ -72,17 +85,17 @@ bool digit_set_segments(struct digit_ctx_t *ctx, uint8_t new_state, uint16_t *va
 
 bool digit_set_number(struct digit_ctx_t *ctx, uint8_t number, uint16_t *value) {
     const uint8_t states[] = {
-        // ABCDEFG
-        0b01111110,
-        0b00110000,
-        0b01101101,
-        0b01111001,
-        0b00110011,
+        // GFEDCBA
+        0b00111111,
+        0b00000110,
         0b01011011,
-        0b01011111,
-        0b01110000,
+        0b01001111,
+        0b01100110,
+        0b01101101,
+        0b01111101,
+        0b00000111,
         0b01111111,
-        0b01110011,
+        0b01101111,
     };
 
     if (number >= sizeof(states)/sizeof(*states)) {
